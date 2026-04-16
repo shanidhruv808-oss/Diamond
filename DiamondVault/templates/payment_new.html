@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment for {{ auction.diamond.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-credit-card me-2"></i>
+                        Complete Payment
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ auction.diamond.name }}</h5>
+                    <p class="text-muted">Auction #{{ auction.id }}</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Current Price:</strong>
+                            <h3 class="text-success">₹{{ auction.diamond.current_price }}</h3>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Your Winning Bid:</strong>
+                            <h3 class="text-info">₹{{ auction.winning_bid|default:auction.diamond.base_price }}</h3>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="alert alert-danger mb-3">
+                        <h6><i class="bi bi-exclamation-triangle-fill me-2"></i>Payment System Notice</h6>
+                        <p class="mb-2"><strong>Razorpay test mode has restrictions and may not work with all cards.</strong></p>
+                        <p class="mb-2"><strong>Recommended:</strong> Use the "Complete Test Payment" button below to finish your auction without payment issues.</p>
+                        <p class="mb-0"><small>This creates a test order and allows you to proceed with the auction process immediately.</small></p>
+                    </div>
+
+                    <div class="card border-primary mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-check-circle me-2"></i>Recommended: Complete Test Payment</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">This is the <strong>easiest and most reliable way</strong> to complete your auction:</p>
+                            <ul class="mb-3">
+                                <li>No real payment required</li>
+                                <li>Works for all users (international and Indian)</li>
+                                <li>Creates test order instantly</li>
+                                <li>Allows you to proceed to winner dashboard</li>
+                            </ul>
+                            <button id="test-pay-btn" class="btn btn-success btn-lg w-100" onclick="simulatePayment()">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                Complete Test Payment (Recommended)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card border-secondary mb-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0"><i class="bi bi-lock-fill me-2"></i>Alternative: Try Razorpay (May Not Work)</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">If you want to test the real payment system (may fail):</p>
+                            <ul class="mb-3 small">
+                                <li>Test card: 4111 1111 1111 1111</li>
+                                <li>Expiry: Any future date</li>
+                                <li>CVV: Any 3 digits</li>
+                                <li>OTP: 123456</li>
+                            </ul>
+                            <p class="mb-2 text-warning"><strong>Note:</strong> This may not work due to test mode restrictions.</p>
+                            <button id="pay-btn" class="btn btn-outline-secondary btn-lg w-100">
+                                <i class="bi bi-lock-fill me-2"></i>
+                                Try Razorpay Payment (May Fail)
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+var options = {
+    "key": "{{ razorpay_key }}",
+    "amount": "{{ payment.amount }}",
+    "currency": "INR",
+    "name": "DiamondVault",
+    "description": "Payment for {{ auction.diamond.name }}",
+    "order_id": "{{ payment.id }}",
+    "handler": function (response){
+        verifyPayment(response);
+    },
+    "modal": {
+        "ondismiss": function(){
+            console.log("Payment modal dismissed");
+        },
+        "escape": true,
+        "backdropclose": false,
+        "handleback": true,
+        "confirm_close": true
+    },
+    "prefill": {
+        "name": "{{ request.user.username }}",
+        "email": "{{ request.user.email|default:'user@example.com' }}",
+        "contact": "9999999999"
+    },
+    "theme": {
+        "color": "#007bff"
+    },
+    "config": {
+        "display": {
+            "blocks": {
+                "upi": {
+                    "name": "UPI",
+                    "instruments": [
+                        {
+                            "method": "upi"
+                        }
+                    ]
+                },
+                "card": {
+                    "name": "Credit/Debit Card",
+                    "instruments": [
+                        {
+                            "method": "card"
+                        }
+                    ]
+                },
+                "wallet": {
+                    "name": "Wallet",
+                    "instruments": [
+                        {
+                            "method": "wallet",
+                            "wallets": ["jio_money", "freecharge", "airtel_money", "payzapp"]
+                        }
+                    ]
+                },
+                "netbanking": {
+                    "name": "Net Banking",
+                    "instruments": [
+                        {
+                            "method": "netbanking",
+                            "banks": ["HDFC", "ICICI", "SBI", "PNB", "AXIS", "KOTAK"]
+                        }
+                    ]
+                }
+            },
+            "sequence": ["block.block_upi", "block.block_card", "block.block_wallet", "block.block_netbanking"],
+            "preferences": {
+                "show_default_blocks": true
+            }
+        }
+    }
+};
+
+var rzp = new Razorpay(options);
+
+document.getElementById('pay-btn').onclick = function(e){
+    rzp.open();
+    e.preventDefault();
+}
+
+// Function to verify payment with server
+function verifyPayment(response) {
+    fetch('/verify-payment/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+            auction_id: "{{ auction.id }}"
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Payment Successful!");
+            window.location.href = "/payment-success/{{ auction.id }}/";
+        } else {
+            // Check if it's an international card issue
+            if (data.message.includes("International") || data.message.includes("not supported")) {
+                if (confirm("International cards are not supported in test mode. Would you like to use the Test Payment option instead?")) {
+                    simulatePayment();
+                } else {
+                    alert("Payment failed: " + data.message);
+                    window.location.href = "/payment-failure/{{ auction.id }}/";
+                }
+            } else {
+                alert("Payment failed: " + data.message);
+                window.location.href = "/payment-failure/{{ auction.id }}/";
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert("Payment verification failed. Please try again.");
+        window.location.href = "/payment-failure/{{ auction.id }}/";
+    });
+}
+
+// Function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Function to simulate payment for development testing
+function simulatePayment() {
+    // Show loading state
+    const testBtn = document.getElementById('test-pay-btn');
+    const originalText = testBtn.innerHTML;
+    testBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Processing...';
+    testBtn.disabled = true;
+    
+    fetch('/simulate-payment/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            auction_id: "{{ auction.id }}"
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            testBtn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Payment Successful!';
+            testBtn.className = 'btn btn-success btn-lg w-100';
+            
+            // Show success alert and redirect
+            setTimeout(() => {
+                alert("Test payment completed successfully! Redirecting to your dashboard...");
+                window.location.href = "/payment-success/{{ auction.id }}/";
+            }, 1000);
+        } else {
+            // Show error state
+            testBtn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i>Payment Failed';
+            testBtn.className = 'btn btn-danger btn-lg w-100';
+            
+            alert("Test payment failed: " + data.message);
+            
+            // Reset button after delay
+            setTimeout(() => {
+                testBtn.innerHTML = originalText;
+                testBtn.className = 'btn btn-success btn-lg w-100';
+                testBtn.disabled = false;
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        
+        // Show error state
+        testBtn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i>Connection Error';
+        testBtn.className = 'btn btn-danger btn-lg w-100';
+        
+        alert("Test payment failed due to connection error. Please try again.");
+        
+        // Reset button after delay
+        setTimeout(() => {
+            testBtn.innerHTML = originalText;
+            testBtn.className = 'btn btn-success btn-lg w-100';
+            testBtn.disabled = false;
+        }, 3000);
+    });
+}
+</script>
+
+{% endblock %}

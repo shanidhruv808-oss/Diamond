@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Debug Auctions{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+    <h2 class="mb-4">🔍 Auction Debug Information</h2>
+    
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <thead class="table-dark">
+                <tr>
+                    <th>Diamond Name</th>
+                    <th>Diamond ID</th>
+                    <th>Has Auction</th>
+                    <th>Auction Status</th>
+                    <th>Auction Active</th>
+                    <th>Bid Count</th>
+                    <th>Highest Bid</th>
+                    <th>Winner</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for info in debug_info %}
+                <tr>
+                    <td>{{ info.diamond_name }}</td>
+                    <td>{{ info.diamond_id }}</td>
+                    <td>
+                        {% if info.has_auction %}
+                            <span class="badge bg-success">Yes</span>
+                        {% else %}
+                            <span class="badge bg-danger">No</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ info.auction_status }}</td>
+                    <td>
+                        {% if info.auction_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Ended</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ info.bid_count }}</td>
+                    <td>
+                        {% if info.highest_bid %}
+                            ₹{{ info.highest_bid }}
+                        {% else %}
+                            <span class="text-muted">No bids</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if info.winner %}
+                            <strong>{{ info.winner }}</strong>
+                        {% else %}
+                            <span class="text-muted">No winner</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mt-4">
+        <h3>📋 What to Check:</h3>
+        <ul class="list-group">
+            <li class="list-group-item">
+                <strong>Has Auction:</strong> Should be "Yes" for auction to work
+            </li>
+            <li class="list-group-item">
+                <strong>Auction Status:</strong> Should be "ended" for Pay Now to appear
+            </li>
+            <li class="list-group-item">
+                <strong>Auction Active:</strong> Should be "Ended" for Pay Now to appear
+            </li>
+            <li class="list-group-item">
+                <strong>Bid Count:</strong> Should be > 0 for winner to be assigned
+            </li>
+            <li class="list-group-item">
+                <strong>Winner:</strong> Should show username if auction ended and has bids
+            </li>
+        </ul>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{% url 'home' %}" class="btn btn-primary">
+            <i class="bi bi-house me-2"></i>Back to Home
+        </a>
+        <a href="{% url 'diamonds' %}" class="btn btn-success">
+            <i class="bi bi-gem me-2"></i>View Diamonds
+        </a>
+    </div>
+</div>
+
+{% endblock %}
