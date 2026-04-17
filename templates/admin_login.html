@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Login{% endblock %}
+
+{% block content %}
+
+<div class="container py-5" style="max-width:500px">
+    
+    <div class="card shadow-lg border-primary">
+        <div class="card-header bg-primary text-white text-center">
+            <h4 class="mb-0">
+                <i class="bi bi-shield-lock me-2"></i>Admin Login
+            </h4>
+        </div>
+        
+        <div class="card-body p-4">
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="alert alert-info">
+                <small class="mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    This is the admin login page. For regular user login, 
+                    <a href="{% url 'login' %}" class="alert-link">click here</a>.
+                </small>
+            </div>
+            
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="username" class="form-label">Admin Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-person-fill"></i>
+                        </span>
+                        <input type="text" name="username" class="form-control" required id="username" 
+                               placeholder="Enter admin username">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">Admin Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-key-fill"></i>
+                        </span>
+                        <input type="password" name="password" class="form-control" required id="password" 
+                               placeholder="Enter admin password">
+                    </div>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="rememberMe">
+                    <label class="form-check-label" for="rememberMe">
+                        Remember me
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 mb-3">
+                    <i class="bi bi-shield-check me-2"></i>Login to Admin Panel
+                </button>
+                
+                <div class="text-center">
+                    <small class="text-muted">
+                        <i class="bi bi-lock me-1"></i>
+                        Secure admin access only
+                    </small>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card-footer text-center bg-light">
+            <small class="text-muted">
+                <a href="{% url 'login' %}" class="me-2">
+                    <i class="bi bi-person me-1"></i>User Login
+                </a>
+                |
+                <a href="{% url 'home' %}" class="ms-2">
+                    <i class="bi bi-house me-1"></i>Back to Website
+                </a>
+            </small>
+        </div>
+    </div>
+    
+</div>
+
+<style>
+.card {
+    border: 2px solid #007bff;
+    border-radius: 15px;
+}
+
+.card-header {
+    border-radius: 13px 13px 0 0;
+}
+
+.input-group-text {
+    background-color: #007bff;
+    color: white;
+    border: 1px solid #007bff;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+</style>
+
+{% endblock %}

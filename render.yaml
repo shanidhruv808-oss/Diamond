@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: diamondvault
+    env: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: gunicorn DiamondVault.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DEBUG
+        value: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: diamondvault-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        generateValue: true
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+databases:
+  - name: diamondvault-db
+    plan: free

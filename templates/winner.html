@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+<!-- DEBUG: This is winner.html -->
+
+{% block content %}
+
+<div class="container py-5 text-center">
+
+<h1 class="mb-4 text-success">Auction Result</h1>
+
+<img src="{{ diamond.image.url }}" class="img-fluid mb-4" style="max-width:300px">
+
+<h3>{{ diamond.name }}</h3>
+
+{% if winner %}
+
+<h2 class="text-primary mt-4">
+Winner: {{ winner.username }}
+</h2>
+
+<h4 class="mt-3">
+Winning Bid: ₹{{ amount }}
+</h4>
+
+{% else %}
+
+<h3 class="text-danger">
+No bids were placed
+</h3>
+
+{% endif %}
+
+<div class="mt-4">
+    {% if user.is_authenticated and winner %}
+        {% if user.id == winner.id %}
+            {% if diamond.auction_status == 'winner_declared' or diamond.auction_status == 'payment_pending' %}
+                <button class="btn btn-success btn-lg me-3" onclick="processPayment({{ diamond.id }})">
+                    <i class="bi bi-credit-card me-2"></i>Pay Now
+                </button>
+            {% elif diamond.auction_status == 'completed' %}
+                <span class="badge bg-success fs-6 me-3">
+                    <i class="bi bi-check-circle me-1"></i>Paid
+                </span>
+            {% endif %}
+        {% else %}
+            <!-- User is logged in but not the winner -->
+            <div class="alert alert-warning d-inline-block me-3">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Auction Won By:</strong> {{ winner.username }}
+            </div>
+        {% endif %}
+    {% elif user.is_authenticated %}
+        <!-- User is logged in but no winner declared -->
+        <div class="alert alert-info d-inline-block me-3">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Auction Status:</strong> {{ diamond.get_auction_status_display }}
+        </div>
+    {% endif %}
+    
+    <a href="{% url 'diamonds' %}" class="btn btn-primary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Diamonds
+    </a>
+</div>
+
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Process Payment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentContent">
+                    <!-- Payment content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function processPayment(diamondId) {
+    // Show loading in modal
+    document.getElementById('paymentContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Initializing payment...</p>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    modal.show();
+    
+    // Create Razorpay order
+    fetch(`/api/create-payment-order/${diamondId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Initialize Razorpay checkout
+            const options = {
+                key: data.key,
+                amount: data.amount,
+                currency: 'INR',
+                name: data.name,
+                description: data.description,
+                order_id: data.order_id,
+                prefill: data.prefill,
+                notes: data.notes,
+                handler: function (response) {
+                    // Payment successful, verify with backend
+                    verifyPayment(diamondId, response.razorpay_order_id, response.razorpay_payment_id, response.razorpay_signature);
+                },
+                modal: {
+                    ondismiss: function() {
+                        document.getElementById('paymentContent').innerHTML = `
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Payment Cancelled</strong>
+                                <p class="mb-0">Payment was cancelled. You can try again anytime.</p>
+                            </div>
+                        `;
+                    }
+                }
+            };
+            
+            const rzp = new Razorpay(options);
+            rzp.open();
+            
+            // Hide the modal while Razorpay checkout is open
+            modal.hide();
+            
+        } else {
+            document.getElementById('paymentContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Payment Initialization Failed</strong>
+                    <p class="mb-0">${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('paymentContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Payment Error</strong>
+                <p class="mb-0">Failed to initialize payment. Please try again.</p>
+            </div>
+        `;
+    });
+}
+
+function verifyPayment(diamondId, orderId, paymentId, signature) {
+    // Show verification in modal
+    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    modal.show();
+    
+    document.getElementById('paymentContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Verifying payment...</p>
+        </div>
+    `;
+    
+    // Verify payment with backend
+    fetch(`/api/verify-payment/${diamondId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            razorpay_signature: signature
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('paymentContent').innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong>Payment Successful!</strong>
+                    <p class="mb-0">${data.message}</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                modal.hide();
+                window.location.href = data.redirect_url;
+            }, 2000);
+        } else {
+            document.getElementById('paymentContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Payment Verification Failed</strong>
+                    <p class="mb-0">${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('paymentContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Verification Error</strong>
+                <p class="mb-0">Failed to verify payment. Please contact support.</p>
+            </div>
+        `;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}

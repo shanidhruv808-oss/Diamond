@@ -1,0 +1,455 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Won Auctions - DiamondVault{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-3">
+            <!-- Stats Cards -->
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Won</h5>
+                    <h3 class="text-primary">{{ total_won }}</h3>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Value</h5>
+                    <h3 class="text-success">₹{{ total_value|default:0 }}</h3>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Payment Status</h5>
+                    <div class="mt-2">
+                        <span class="badge bg-warning">{{ payment_pending.count }} Pending</span>
+                        <span class="badge bg-success">{{ completed.count }} Paid</span>
+                        {% if overdue.count %}
+                        <span class="badge bg-danger">{{ overdue.count }} Overdue</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <!-- Won Auctions -->
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#all">All Won ({{ total_won }})</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#pending">Payment Pending ({{ payment_pending.count }})</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#completed">Completed ({{ completed.count }})</a>
+                        </li>
+                        {% if overdue.count %}
+                        <li class="nav-item">
+                            <a class="nav-link text-danger" data-bs-toggle="tab" href="#overdue">Overdue ({{ overdue.count }})</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="card-body">
+                    <div class="tab-content">
+                        <!-- All Won Tab -->
+                        <div class="tab-pane fade show active" id="all">
+                            {% if won_auctions %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Diamond</th>
+                                            <th>Winning Amount</th>
+                                            <th>Status</th>
+                                            <th>Payment Deadline</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for auction in won_auctions %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    {% if auction.image %}
+                                                    <img src="{{ auction.image.url }}" class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                                    {% endif %}
+                                                    <div>
+                                                        <strong>{{ auction.name }}</strong><br>
+                                                        <small class="text-muted">{{ auction.carat }}ct • {{ auction.color }} • {{ auction.clarity }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="fw-bold">₹{{ auction.winning_bid.amount }}</td>
+                                            <td>
+                                                {% if auction.auction_status == 'payment_pending' %}
+                                                    <span class="badge bg-warning">Payment Pending</span>
+                                                {% elif auction.auction_status == 'completed' %}
+                                                    <span class="badge bg-success">Completed</span>
+                                                {% elif auction.auction_status == 'payment_pending' and auction.payment_deadline < now %}
+                                                    <span class="badge bg-danger">Overdue</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if auction.payment_deadline %}
+                                                    <span class="{% if auction.payment_deadline < now %}text-danger{% endif %}">
+                                                        {{ auction.payment_deadline|date:"M d, Y H:i" }}
+                                                    </span>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if auction.auction_status == 'payment_pending' %}
+                                                    <button class="btn btn-primary btn-sm" onclick="processPayment({{ auction.id }})">
+                                                        Pay Now
+                                                    </button>
+                                                {% elif auction.auction_status == 'completed' %}
+                                                    <button class="btn btn-success btn-sm" onclick="viewDetails({{ auction.id }})">
+                                                        View Details
+                                                    </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-trophy" style="font-size: 4rem; color: #ddd;"></i>
+                                <h5 class="mt-3 text-muted">You haven't won any auctions yet</h5>
+                                <p class="text-muted">Start bidding on active auctions to win your first diamond!</p>
+                                <a href="{% url 'diamonds' %}" class="btn btn-primary">Browse Auctions</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Payment Pending Tab -->
+                        <div class="tab-pane fade" id="pending">
+                            {% if payment_pending %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Payment Required:</strong> Complete payment within 7 days to secure your diamonds.
+                            </div>
+                            
+                            {% for auction in payment_pending %}
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-2">
+                                            {% if auction.image %}
+                                            <img src="{{ auction.image.url }}" class="img-fluid rounded">
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="card-title">{{ auction.name }}</h6>
+                                            <p class="mb-1"><strong>Winning Amount:</strong> ₹{{ auction.winning_bid.amount }}</p>
+                                            <p class="mb-1 text-muted"><small>Payment Deadline:</small> {{ auction.payment_deadline|date:"M d, Y H:i" }}</p>
+                                        </div>
+                                        <div class="col-md-4 text-end">
+                                            <button class="btn btn-primary" onclick="processPayment({{ auction.id }})">
+                                                Pay Now
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-muted text-center">No pending payments.</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Completed Tab -->
+                        <div class="tab-pane fade" id="completed">
+                            {% if completed %}
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>Completed Auctions:</strong> These auctions have been paid and processed.
+                            </div>
+                            
+                            {% for auction in completed %}
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-2">
+                                            {% if auction.image %}
+                                            <img src="{{ auction.image.url }}" class="img-fluid rounded">
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-8">
+                                            <h6 class="card-title">{{ auction.name }}</h6>
+                                            <p class="mb-1"><strong>Paid Amount:</strong> ₹{{ auction.winning_bid.amount }}</p>
+                                            <p class="mb-1 text-muted"><small>Completed:</small> {{ auction.winner_declared_at|date:"M d, Y H:i" }}</p>
+                                        </div>
+                                        <div class="col-md-2 text-end">
+                                            <button class="btn btn-outline-success btn-sm" onclick="viewDetails({{ auction.id }})">
+                                                <i class="bi bi-receipt"></i> Receipt
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-muted text-center">No completed auctions.</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Overdue Tab -->
+                        {% if overdue.count %}
+                        <div class="tab-pane fade" id="overdue">
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Overdue Payments:</strong> These auctions have passed the payment deadline.
+                            </div>
+                            
+                            {% for auction in overdue %}
+                            <div class="card mb-3 border-danger">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-2">
+                                            {% if auction.image %}
+                                            <img src="{{ auction.image.url }}" class="img-fluid rounded">
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-8">
+                                            <h6 class="card-title">{{ auction.name }}</h6>
+                                            <p class="mb-1"><strong>Amount:</strong> ₹{{ auction.winning_bid.amount }}</p>
+                                            <p class="mb-1 text-danger"><small>Payment was due:</small> {{ auction.payment_deadline|date:"M d, Y H:i" }}</p>
+                                        </div>
+                                        <div class="col-md-2 text-end">
+                                            <span class="badge bg-danger">Overdue</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Process Payment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentContent">
+                    <!-- Payment content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function processPayment(diamondId) {
+    // Show loading in modal
+    document.getElementById('paymentContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Initializing payment...</p>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    modal.show();
+    
+    // Create Razorpay order
+    fetch(`/api/create-payment-order/${diamondId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Initialize Razorpay checkout
+            const options = {
+                key: data.key,
+                amount: data.amount,
+                currency: 'INR',
+                name: data.name,
+                description: data.description,
+                order_id: data.order_id,
+                prefill: data.prefill,
+                notes: data.notes,
+                handler: function (response) {
+                    // Payment successful, verify with backend
+                    verifyPayment(diamondId, response.razorpay_order_id, response.razorpay_payment_id, response.razorpay_signature);
+                },
+                modal: {
+                    ondismiss: function() {
+                        document.getElementById('paymentContent').innerHTML = `
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Payment Cancelled</strong>
+                                <p class="mb-0">Payment was cancelled. You can try again anytime.</p>
+                            </div>
+                        `;
+                    }
+                }
+            };
+            
+            const rzp = new Razorpay(options);
+            rzp.open();
+            
+            // Hide the modal while Razorpay checkout is open
+            modal.hide();
+            
+        } else {
+            document.getElementById('paymentContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Payment Initialization Failed</strong>
+                    <p class="mb-0">${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('paymentContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Payment Error</strong>
+                <p class="mb-0">Failed to initialize payment. Please try again.</p>
+            </div>
+        `;
+    });
+}
+
+function verifyPayment(diamondId, orderId, paymentId, signature) {
+    // Show verification in modal
+    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    modal.show();
+    
+    document.getElementById('paymentContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Verifying payment...</p>
+        </div>
+    `;
+    
+    // Verify payment with backend
+    fetch(`/api/verify-payment/${diamondId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            razorpay_signature: signature
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('paymentContent').innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong>Payment Successful!</strong>
+                    <p class="mb-0">${data.message}</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                modal.hide();
+                window.location.href = data.redirect_url;
+            }, 2000);
+        } else {
+            document.getElementById('paymentContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Payment Verification Failed</strong>
+                    <p class="mb-0">${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('paymentContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Verification Error</strong>
+                <p class="mb-0">Failed to verify payment. Please contact support.</p>
+            </div>
+        `;
+    });
+}
+
+function viewDetails(diamondId) {
+    // View auction details/receipt
+    window.location.href = `/auction/${diamondId}/receipt/`;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<style>
+.nav-tabs .nav-link {
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.card-header-tabs {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+
+{% endblock %}

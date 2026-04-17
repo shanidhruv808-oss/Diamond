@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ diamond.name }}{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+
+<div class="row">
+
+<div class="col-md-6">
+<img src="{{ diamond.image.url }}" class="img-fluid rounded shadow">
+</div>
+
+<div class="col-md-6">
+
+<h2 class="fw-bold">{{ diamond.name }}</h2>
+
+<h3 class="text-primary">₹{{ diamond.price }}</h3>
+<p class="text-muted">Starting Bid</p>
+
+<hr>
+
+<ul class="list-group mb-4">
+
+<li class="list-group-item d-flex justify-content-between">
+<strong>Carat</strong>
+<span>{{ diamond.carat }}</span>
+</li>
+
+<li class="list-group-item d-flex justify-content-between">
+<strong>Color</strong>
+<span>{{ diamond.color }}</span>
+</li>
+
+<li class="list-group-item d-flex justify-content-between">
+<strong>Clarity</strong>
+<span>{{ diamond.clarity }}</span>
+</li>
+
+<li class="list-group-item d-flex justify-content-between">
+<strong>Cut</strong>
+<span>{{ diamond.cut }}</span>
+</li>
+
+</ul>
+
+{% if diamond.is_auction_active %}
+<a href="{% url 'place_bid' diamond.id %}" class="btn btn-success">
+Place Bid
+</a>
+{% else %}
+<button class="btn btn-secondary" disabled>
+Auction Ended
+</button>
+{% endif %}
+
+<h4>Auction Ends In:</h4>
+<h3 id="timer"></h3>
+
+</div>
+
+<h3 class="mt-5">Bid History</h3>
+
+<table class="table table-striped">
+
+<tr>
+<th>User</th>
+<th>Bid Amount</th>
+<th>Date</th>
+</tr>
+
+{% for bid in bids %}
+
+<tr>
+<td>{{ bid.user.username }}</td>
+<td>₹{{ bid.amount }}</td>
+<td>{{ bid.created_at }}</td>
+</tr>
+
+{% empty %}
+
+<tr>
+<td colspan="3">No bids yet</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+<p id="timer" class="fw-bold text-danger"></p>
+
+<script>
+
+// Parse auction end time properly for JavaScript compatibility
+var auctionEndTime = "{{ diamond.auction_end|date:'Y-m-d H:i:s' }}";
+var auctionEnd = new Date(auctionEndTime.replace(/-/g, '/')).getTime();
+
+var timer = setInterval(function() {
+
+    var now = new Date().getTime();
+    var distance = auctionEnd - now;
+
+    // STOP when auction ends
+    if (distance <= 0) {
+        clearInterval(timer);
+        window.location.href = "/winner/{{ diamond.id }}/";
+    }
+
+    var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+    document.getElementById("timer").innerHTML =
+        days + "d " + hours + "h " + minutes + "m " + seconds + "s ";
+
+}, 1000);
+
+</script>
+{% endblock %}

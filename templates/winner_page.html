@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+<!-- DEBUG: This is winner_page.html -->
+
+{% block title %}Winner - {{ diamond.name }}{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-trophy-fill me-2"></i>
+                        Winner Announced!
+                    </h3>
+                </div>
+                
+                <div class="card-body text-center p-5">
+                    {% if diamond.winner %}
+                        <div class="mb-4">
+                            <img src="{{ diamond.winner.userprofile.avatar.url|default:'/static/images/default-avatar.png' }}" 
+                                 class="rounded-circle mb-3" 
+                                 style="width: 100px; height: 100px; object-fit: cover;"
+                                 alt="{{ diamond.winner.username }}">
+                            <h4 class="text-success">Congratulations {{ diamond.winner.username }}!</h4>
+                            <p class="lead">You won the auction for <strong>{{ diamond.name }}</strong></p>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h5><i class="bi bi-gem me-2"></i>Diamond Details</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Carat:</strong> {{ diamond.carat }}ct<br>
+                                    <strong>Color:</strong> {{ diamond.color }}<br>
+                                    <strong>Clarity:</strong> {{ diamond.clarity }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Cut:</strong> {{ diamond.cut }}<br>
+                                    <strong>Winning Bid:</strong> ₹{{ diamond.winning_bid.amount }}<br>
+                                    <strong>Auction Status:</strong> {{ diamond.get_auction_status_display }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <h5><i class="bi bi-clock me-2"></i>Payment Information</h5>
+                            <p><strong>Payment Deadline:</strong> {{ diamond.payment_deadline|date:"F d, Y H:i" }}</p>
+                            <p><strong>Status:</strong> {{ diamond.get_payment_status }}</p>
+                            
+                            <!-- DEBUG: Auction Status = {{ diamond.auction_status }} -->
+<!-- DEBUG: User Authenticated = {{ user.is_authenticated }} -->
+<!-- DEBUG: Current User = {{ user.username }} -->
+<!-- DEBUG: Winner = {{ diamond.winner.username }} -->
+<!-- DEBUG: User is Winner = {{ user == diamond.winner }} -->
+
+{% if diamond.auction_status == 'winner_declared' %}
+    {% if user.is_authenticated %}
+        {% if user.id == diamond.winner.id %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle me-2"></i>
+                <strong>You are the winner!</strong> You can complete payment below.
+            </div>
+            <a href="{% url 'winner_dashboard' %}" class="btn btn-primary btn-lg me-3">
+                <i class="bi bi-credit-card me-2"></i>Complete Payment
+            </a>
+            <button class="btn btn-success btn-lg" onclick="processPayment({{ diamond.id }})">
+                <i class="bi bi-credit-card me-2"></i>Pay Now
+            </button>
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Cannot Pay:</strong> Only {{ diamond.winner.username }} can complete payment for this auction.
+            </div>
+        {% endif %}
+    {% else %}
+        <a href="{% url 'login' %}?next={% url 'winner_dashboard' %}" class="btn btn-outline-primary btn-lg">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Login to Pay
+        </a>
+    {% endif %}
+{% elif diamond.auction_status == 'completed' %}
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle me-2"></i>
+        <strong>Payment Completed!</strong>
+    </div>
+{% endif %}
+                        </div>
+                        
+                        <div class="mt-4">
+                            <a href="{% url 'diamonds' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Back to Diamonds
+                            </a>
+                        </div>
+                        
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <h4><i class="bi bi-exclamation-triangle me-2"></i>No Winner</h4>
+                            <p>This auction ended without any winning bids.</p>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <a href="{% url 'diamonds' %}" class="btn btn-primary">
+                                <i class="bi bi-gem me-2"></i>Browse Other Diamonds
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-header {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+}
+
+.rounded-circle {
+    border: 3px solid #dee2e6;
+}
+
+.alert {
+    border: none;
+    border-radius: 10px;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #f39c12, #e74c3c);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+</style>
+
+{% endblock %}
